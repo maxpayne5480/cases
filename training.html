@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>托里县应急管理局｜培训口径</title>
+  <style>
+    :root{
+      --bg:#f3f6fb;
+      --card:#ffffff;
+      --text:#0b1220;
+      --muted:#516078;
+      --line:#e3eaf6;
+      --blue:#1d4ed8;
+      --red:#dc2626;
+      --shadow:0 18px 50px rgba(2,6,23,.12);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:"Microsoft YaHei",system-ui,-apple-system,Segoe UI,Arial;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 520px at 20% 0%, rgba(29,78,216,.10), transparent 60%),
+        radial-gradient(900px 520px at 80% 10%, rgba(220,38,38,.09), transparent 55%),
+        linear-gradient(180deg, #f6f9ff 0%, #f3f6fb 45%, #eef3fb 100%);
+    }
+    a{color:inherit;text-decoration:none}
+    .wrap{max-width:1440px;margin:0 auto;padding:26px 22px 56px}
+
+    .topbar{
+      position:relative;
+      border:1px solid var(--line);
+      border-radius:28px;
+      background:linear-gradient(135deg, rgba(29,78,216,.12), rgba(220,38,38,.10));
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      padding:18px 18px;
+    }
+    .topbar::before{
+      content:"";
+      position:absolute;right:-110px;top:-110px;
+      width:420px;height:420px;border-radius:999px;
+      background:radial-gradient(circle at 30% 30%, rgba(220,38,38,.18), transparent 60%);
+      filter:blur(2px);
+    }
+    .topbar::after{
+      content:"";
+      position:absolute;left:-120px;top:-120px;
+      width:420px;height:420px;border-radius:999px;
+      background:radial-gradient(circle at 40% 40%, rgba(29,78,216,.18), transparent 62%);
+      filter:blur(2px);
+    }
+    .topInner{position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:16px}
+    .emblem{
+      width:60px;height:60px;border-radius:18px;
+      background:linear-gradient(135deg, var(--blue), var(--red));
+      box-shadow:0 24px 42px rgba(29,78,216,.22);
+      display:grid;place-items:center;color:#fff;flex:0 0 auto;
+    }
+    .brandText h1{margin:0;font-size:22px;font-weight:1000;letter-spacing:.3px}
+    .brandText .sub{margin-top:6px;font-size:13px;font-weight:900;color:rgba(11,18,32,.70)}
+    .stripe{
+      margin-top:14px;height:12px;border-radius:999px;
+      background:repeating-linear-gradient(135deg, rgba(220,38,38,.95) 0 14px, rgba(220,38,38,.95) 14px 28px, rgba(29,78,216,.95) 28px 42px, rgba(29,78,216,.95) 42px 56px);
+      opacity:.55;
+    }
+
+    .btn{
+      border:none;border-radius:18px;
+      padding:14px 16px;
+      cursor:pointer;font-weight:1000;
+      display:inline-flex;align-items:center;gap:10px;
+      background:var(--blue);color:#fff;font-size:14px;
+      box-shadow:0 18px 40px rgba(29,78,216,.16);
+      transition:transform .08s ease, filter .08s ease;
+    }
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+    .btn.ghost{background:#fff;color:#0b1220;border:1px solid var(--line);box-shadow:none}
+    .btn.red{background:var(--red);box-shadow:0 18px 40px rgba(220,38,38,.16)}
+
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:22px;
+      box-shadow:var(--shadow);
+    }
+    h2{margin:0 0 12px;font-size:16px;font-weight:1000}
+    .muted{color:var(--muted);font-size:13px;font-weight:850;line-height:1.8}
+    .list{margin:0;padding-left:18px}
+    .list li{margin:8px 0;font-size:14px;line-height:1.8}
+    .tag{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:10px 12px;border-radius:999px;
+      background:rgba(29,78,216,.08);border:1px solid rgba(29,78,216,.22);
+      color:var(--blue);font-size:12px;font-weight:1000;width:max-content;
+      margin-bottom:12px;
+    }
+    .tag.red{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.22);color:var(--red)}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    label{font-weight:1000;font-size:12px}
+    input,select{
+      padding:14px 14px;border-radius:18px;border:1px solid var(--line);
+      font-size:14px;outline:none;background:#fff;width:100%;
+    }
+    .out{
+      border:1px solid var(--line);border-radius:22px;background:#f8fbff;
+      padding:14px;margin-top:12px;font-size:14px;line-height:1.85;
+      font-weight:850;color:#0b1220;
+      white-space:pre-line;
+    }
+    .tbl{width:100%;border-collapse:collapse;margin-top:12px}
+    .tbl th,.tbl td{border-bottom:1px solid var(--line);padding:12px;text-align:left;font-size:14px;vertical-align:top}
+    .tbl th{background:#f8fbff;font-size:12px;font-weight:1000}
+    @media (max-width: 980px){
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="topbar">
+      <div class="topInner">
+        <div class="brand">
+          <div class="emblem" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2l7 4v6c0 5-3 9-7 10-4-1-7-5-7-10V6l7-4z" stroke="white" stroke-width="2" />
+              <path d="M8 12l2.2 2.2L16 8.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="brandText">
+            <h1>托里县应急管理局｜培训口径</h1>
+            <div class="sub">时间节点｜关键间隔｜组卷顺序</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <a class="btn ghost" href="./index.html">返回首页</a>
+          <a class="btn red" href="./case-management.html">进入案件管理</a>
+        </div>
+      </div>
+      <div class="stripe" aria-hidden="true"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <span class="tag">关键期限</span>
+        <h2>时间线要点</h2>
+        <ul class="list">
+          <li><b>立案→决定：</b>90日（可延长至180日）。</li>
+          <li><b>告知→决定：</b>间隔≥3日。</li>
+          <li><b>决定→送达：</b>7日内。</li>
+          <li><b>送达→缴款：</b>15日内。</li>
+          <li><b>决定→立卷：</b>20个工作日内。</li>
+          <li><b>结案→归档：</b>30日内。</li>
+        </ul>
+        <div class="muted" style="margin-top:10px">
+          口径：决定最晚日为硬上限；决定前节点仅倒推提醒，不顺延硬上限。
+        </div>
+      </section>
+
+      <section class="card">
+        <span class="tag red">组卷顺序</span>
+        <h2>正卷排列（决定前置）</h2>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th style="width:54px">序</th>
+              <th>文书</th>
+              <th style="width:260px">形成时间要点</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>案卷封面（正卷）</td><td>立卷时（决定后20个工作日内）</td></tr>
+            <tr><td>2</td><td>卷内目录</td><td>立卷时（决定后20个工作日内）</td></tr>
+            <tr><td>3</td><td><b>行政处罚决定书</b></td><td><b>立案后90日内（可延长至180）</b></td></tr>
+            <tr><td>4</td><td>立案审批表</td><td>发现线索后7个工作日内</td></tr>
+            <tr><td>5</td><td>案件处理呈批表</td><td>决定前</td></tr>
+            <tr><td>6</td><td>集体讨论记录</td><td>决定前（重大处罚案件）</td></tr>
+            <tr><td>7</td><td>事先告知书</td><td>决定前≥3日</td></tr>
+            <tr><td>8</td><td>送达回执</td><td>送达后即时</td></tr>
+            <tr><td>9</td><td>缴纳凭证</td><td>收到决定书后15日内</td></tr>
+            <tr><td>10+</td><td>检查/询问/整改/证据等</td><td>按程序时序与形成时间排序</td></tr>
+            <tr><td>16</td><td>结案审批表</td><td>执行完毕后</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" style="grid-column:1 / -1">
+        <span class="tag">计算示例</span>
+        <h2>时间线计算器</h2>
+
+        <div class="row2">
+          <div>
+            <label>立案日期</label>
+            <input type="date" id="c_reg">
+          </div>
+          <div>
+            <label>处罚决定期限（硬上限）</label>
+            <select id="c_limit">
+              <option value="90" selected>90日</option>
+              <option value="180">180日</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row2" style="margin-top:12px">
+          <div>
+            <label>决定签发日（选填）</label>
+            <input type="date" id="c_decision">
+          </div>
+          <div>
+            <label>决定书送达日（选填）</label>
+            <input type="date" id="c_serve">
+          </div>
+        </div>
+
+        <div class="row2" style="margin-top:12px">
+          <div>
+            <label>结案审批签署日（选填）</label>
+            <input type="date" id="c_close">
+          </div>
+          <div>
+            <label>告知送达日（选填）</label>
+            <input type="date" id="c_notice">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <button class="btn" id="btnCalc">计算</button>
+          <button class="btn ghost" id="btnClear">清空</button>
+        </div>
+
+        <div class="out" id="calcOut">等待输入后计算。</div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+function pad(n){ return String(n).padStart(2,"0"); }
+function fmt(d){
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+}
+function parseDate(s){
+  if(!s) return null;
+  const d = new Date(s+"T00:00:00");
+  return isNaN(d)?null:d;
+}
+function addDays(dateStr, days){
+  const d = parseDate(dateStr);
+  if(!d) return null;
+  d.setDate(d.getDate()+days);
+  return fmt(d);
+}
+function dayDiff(aStr, bStr){
+  const a=parseDate(aStr), b=parseDate(bStr);
+  if(!a||!b) return null;
+  return Math.floor((b-a)/(1000*60*60*24));
+}
+document.getElementById("c_reg").value = fmt(new Date());
+
+document.getElementById("btnCalc").addEventListener("click", ()=>{
+  const reg = document.getElementById("c_reg").value;
+  const limit = Number(document.getElementById("c_limit").value||90);
+  const decision = document.getElementById("c_decision").value;
+  const serve = document.getElementById("c_serve").value;
+  const close = document.getElementById("c_close").value;
+  const notice = document.getElementById("c_notice").value;
+
+  if(!reg){
+    document.getElementById("calcOut").textContent = "请先填写立案日期。";
+    return;
+  }
+
+  const decisionDeadline = addDays(reg, limit);
+  const noticeLatest = decisionDeadline ? addDays(decisionDeadline, -3) : null;
+
+  const serveDeadline = decision ? addDays(decision, 7) : null;
+  const payDeadline = serve ? addDays(serve, 15) : null;
+  const archiveDeadline = close ? addDays(close, 30) : null;
+
+  let warn = [];
+  if(decision && decisionDeadline && parseDate(decision) > parseDate(decisionDeadline)){
+    warn.push("提示：决定签发超过决定最晚日。");
+  }
+  if(notice && decision){
+    const gap = dayDiff(notice, decision);
+    if(gap !== null && gap < 3){
+      warn.push("提示：告知→决定间隔不足3日。");
+    }
+  }
+
+  const lines = [];
+  lines.push(`决定最晚日：${decisionDeadline || "-"}`);
+  lines.push(`告知最晚日：${noticeLatest || "-"}`);
+  lines.push(`送达最晚日：${serveDeadline || "需填写决定签发日"}`);
+  lines.push(`缴款最晚日：${payDeadline || "需填写决定书送达日"}`);
+  lines.push(`归档最晚日：${archiveDeadline || "需填写结案审批签署日"}`);
+  if(warn.length) lines.push("\n" + warn.join("\n"));
+
+  document.getElementById("calcOut").textContent = lines.join("\n");
+});
+
+document.getElementById("btnClear").addEventListener("click", ()=>{
+  document.getElementById("c_decision").value="";
+  document.getElementById("c_serve").value="";
+  document.getElementById("c_close").value="";
+  document.getElementById("c_notice").value="";
+  document.getElementById("calcOut").textContent="等待输入后计算。";
+});
+  </script>
+</body>
+</html>
