@@ -373,7 +373,7 @@
     </div>
   </div>
 
-  <!-- 详情弹窗（下方 JS 逻辑保持原版不动） -->
+  <!-- 详情弹窗 -->
   <div class="modal" id="detailModal">
     <div class="modalContent">
       <div class="modalHead">
@@ -610,7 +610,6 @@
     </div>
   </div>
 
-  <!-- ===== JS：完全沿用之前逻辑（未改动核心计算与流程）===== -->
   <script>
 /* ========== 数据与规则 ========== */
 
@@ -700,4 +699,949 @@ function diffDays(toDateStr){
   if(!end) return null;
   const today = new Date();
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const e0 = new Date(end.getF
+  const e0 = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.ceil((e0 - t0)/(1000*60*60*24));
+}
+function isWeekend(d){ const w=d.getDay(); return w===0||w===6; }
+function addWorkDaysFromNextDay(dateStr, workDays){
+  const base = parseDate(dateStr);
+  if(!base) return null;
+  let d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  let count = 0;
+  while(count < workDays){
+    d.setDate(d.getDate()+1);
+    const ds = fmt(d);
+    if(!isWeekend(d) && !HOLIDAYS.includes(ds)){
+      count++;
+    }
+  }
+  return fmt(d);
+}
+
+function computeDeadlines(c){
+  const decisionDeadline = addDays(c.registerDate, Number(c.decisionLimit||90));
+  const noticeLatest = decisionDeadline ? addDays(decisionDeadline, -3) : null;
+  const investigationDeadline = addDays(c.registerDate, Number(c.investigationLimit||30));
+
+  const kd = c.keyDates || {};
+  const serveDeadline = kd.decisionMade ? addDays(kd.decisionMade, 7) : null;
+  const payDeadline = kd.decisionServed ? addDays(kd.decisionServed, 15) : null;
+  const filingDeadline = kd.decisionMade ? addWorkDaysFromNextDay(kd.decisionMade, 20) : null;
+  const archiveDeadline = kd.closed ? addDays(kd.closed, 30) : null;
+
+  return { decisionDeadline, noticeLatest, investigationDeadline, serveDeadline, payDeadline, filingDeadline, archiveDeadline };
+}
+
+function nodeDeadlineInfo(c){
+  const dl = computeDeadlines(c);
+  const stage = c.progress || 1;
+
+  const min2 = (a,b)=>{
+    if(!a) return b;
+    if(!b) return a;
+    return parseDate(a) <= parseDate(b) ? a : b;
+  };
+
+  if(stage === 1){
+    const d = min2(dl.investigationDeadline, dl.decisionDeadline);
+    return { type:"调查到期", date:d };
+  }
+  if(stage === 2){
+    const d = min2(dl.investigationDeadline, dl.decisionDeadline);
+    return { type:"调查到期", date:d };
+  }
+  if(stage === 3){
+    return { type:"告知最晚", date: dl.noticeLatest };
+  }
+  if(stage === 4){
+    return { type:"告知最晚", date: dl.noticeLatest };
+  }
+  if(stage === 5){
+    return { type:"送达最晚", date: dl.serveDeadline };
+  }
+  if(stage === 6){
+    return { type:"缴款最晚", date: dl.payDeadline };
+  }
+  if(stage === 7){
+    return { type:"缴款最晚", date: dl.payDeadline };
+  }
+  if(stage === 8){
+    return { type:"立卷最晚", date: dl.filingDeadline };
+  }
+  if(stage === 9){
+    return { type:"归档最晚", date: dl.archiveDeadline };
+  }
+  return { type:"-", date:null };
+}
+
+function stageName(id){
+  return (STAGES.find(s=>s.id===id)||{}).name || "-";
+}
+function nextStageId(id){
+  if(id>=10) return 10;
+  return id+1;
+}
+
+function loadCases(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    return [];
+  }
+}
+function persist(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(CASES));
+}
+
+function setNow(){
+  const d = new Date();
+  const s = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  document.getElementById("nowText").textContent = `当前时间：${s}`;
+}
+
+function kpi(){
+  const total = CASES.length;
+  let overdue=0, warning=0, normal=0;
+  CASES.forEach(c=>{
+    const info = nodeDeadlineInfo(c);
+    const r = info.date ? diffDays(info.date) : null;
+    if(r===null){ normal++; return; }
+    if(r<=0) overdue++;
+    else if(r<=3) warning++;
+    else normal++;
+  });
+
+  const row = document.getElementById("kpiRow");
+  row.innerHTML = `
+    <div class="kpi"><div class="n">${total}</div><div class="t">案件总数</div></div>
+    <div class="kpi"><div class="n" style="color:var(--red)">${overdue}</div><div class="t">逾期</div></div>
+    <div class="kpi"><div class="n" style="color:var(--amber)">${warning}</div><div class="t">临期（≤3天）</div></div>
+    <div class="kpi"><div class="n" style="color:var(--green)">${normal}</div><div class="t">正常</div></div>
+  `;
+}
+
+function riskPillByRemaining(rem){
+  if(rem===null) return "pill";
+  if(rem<=0) return "pill stage-over";
+  if(rem<=3) return "pill stage-warn";
+  return "pill";
+}
+
+function renderStageFilter(){
+  const sel = document.getElementById("fStage");
+  sel.innerHTML = `<option value="">全部</option>` + STAGES.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
+}
+renderStageFilter();
+
+function applyFilters(){
+  const q = (document.getElementById("q").value||"").trim().toLowerCase();
+  const ft = document.getElementById("fType").value;
+  const fs = document.getElementById("fStage").value;
+  const fr = document.getElementById("fRisk").value;
+
+  let arr = CASES.slice();
+
+  if(q){
+    arr = arr.filter(c=>{
+      return (c.caseNumber||"").toLowerCase().includes(q) ||
+             (c.enterpriseName||"").toLowerCase().includes(q) ||
+             (c.caseName||"").toLowerCase().includes(q) ||
+             (c.handlerName||"").toLowerCase().includes(q);
+    });
+  }
+  if(ft) arr = arr.filter(c=>c.enterpriseType===ft);
+  if(fs) arr = arr.filter(c=>String(c.progress||1)===String(fs));
+  if(fr){
+    arr = arr.filter(c=>{
+      const info = nodeDeadlineInfo(c);
+      const r = info.date ? diffDays(info.date) : null;
+      if(r===null) return fr==="normal";
+      if(fr==="normal") return r>3;
+      if(fr==="warning") return r>=1 && r<=3;
+      if(fr==="overdue") return r<=0;
+      return true;
+    });
+  }
+  return arr;
+}
+
+function render(){
+  setNow();
+  kpi();
+  const arr = applyFilters();
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+
+  if(arr.length===0){
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--muted);font-weight:900">暂无数据</td></tr>`;
+    return;
+  }
+
+  arr.forEach(c=>{
+    const info = nodeDeadlineInfo(c);
+    const rem = info.date ? diffDays(info.date) : null;
+    const remText = (rem===null) ? "-" : (rem>0 ? `${rem}天` : (rem===0 ? "最后1天" : `逾期${Math.abs(rem)}天`));
+    const pillCls = riskPillByRemaining(rem);
+
+    const stage = c.progress||1;
+    const stageCls = stage===2 ? "pill stage-invest" : pillCls;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><div class="statusText">${escapeHtml(c.caseNumber||"-")}</div><div class="muted">立案：${escapeHtml(c.registerDate||"-")}</div></td>
+      <td><div class="statusText">${escapeHtml(c.enterpriseName||"-")}</div><div class="muted">${escapeHtml(c.caseName||"-")}</div></td>
+      <td>${escapeHtml(c.enterpriseType||"-")}</td>
+      <td>${escapeHtml(c.handlerName||"-")}</td>
+      <td><span class="${stageCls}">${escapeHtml(stageName(stage))}</span></td>
+      <td>${escapeHtml(info.type||"-")}</td>
+      <td>${escapeHtml(info.date||"-")}</td>
+      <td><span class="${pillCls}">${escapeHtml(remText)}</span></td>
+      <td>
+        <button class="btn ghost" data-act="detail" data-id="${c.id}">详情</button>
+        ${stage<10 ? `<button class="btn dark" data-act="update" data-id="${c.id}">更新</button>` : ``}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+}
+
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+document.getElementById("registerDate").value = todayStr();
+
+document.getElementById("btnAddCase").addEventListener("click", ()=>{
+  const caseNumber = document.getElementById("caseNumber").value.trim();
+  const enterpriseName = document.getElementById("enterpriseName").value.trim();
+  const enterpriseType = document.getElementById("enterpriseType").value;
+  const caseName = document.getElementById("caseName").value.trim();
+  const registerDate = document.getElementById("registerDate").value;
+  const handlerName = document.getElementById("handlerName").value.trim();
+  const decisionLimit = Number(document.getElementById("decisionLimit").value||90);
+  const investigationLimit = Number(document.getElementById("investigationLimit").value||30);
+  const remark = document.getElementById("caseRemark").value.trim();
+
+  if(!caseNumber || !enterpriseName || !enterpriseType || !caseName || !registerDate || !handlerName){
+    alert("请完整填写必填项。");
+    return;
+  }
+
+  const id = String(Date.now()) + "_" + Math.random().toString(36).slice(2,8);
+  const c = {
+    id,
+    caseNumber,
+    enterpriseName,
+    enterpriseType,
+    caseName,
+    handlerName,
+    registerDate,
+    decisionLimit,
+    investigationLimit,
+    remark,
+    progress: 1,
+    updateTime: new Date().toISOString(),
+    keyDates: {
+      investigationDone: "",
+      discussionDone: "",
+      noticeServed: "",
+      decisionMade: "",
+      decisionServed: "",
+      finePaid: "",
+      closed: "",
+      filed: "",
+      archived: ""
+    },
+    remediation: { issue:"", deadline:"", review:"", result:"", note:"", updateTime:"" },
+    docs: {},
+    files: []
+  };
+
+  DOCS.forEach((_, idx)=>{ c.docs["d"+(idx+1)] = false; });
+
+  c.logs = [{
+    time: new Date().toISOString(),
+    stage: 1,
+    text: "立案（登记）"
+  }];
+
+  CASES.push(c);
+  persist();
+  clearCreateForm();
+  render();
+});
+
+function clearCreateForm(){
+  document.getElementById("caseNumber").value = "";
+  document.getElementById("enterpriseName").value = "";
+  document.getElementById("enterpriseType").value = "";
+  document.getElementById("caseName").value = "";
+  document.getElementById("handlerName").value = "";
+  document.getElementById("decisionLimit").value = "90";
+  document.getElementById("investigationLimit").value = "30";
+  document.getElementById("caseRemark").value = "";
+}
+
+/* ✅ 关键修复：列表点“更新”只弹出更新弹窗，不联动详情页 */
+document.getElementById("tbody").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+
+  const act = btn.getAttribute("data-act");
+  const id  = btn.getAttribute("data-id");
+  if(!act || !id) return;
+
+  if(act==="detail"){
+    openDetail(id);
+    return;
+  }
+  if(act==="update"){
+    currentId = id;      // 让 openUpdate() 能找到当前案件
+    openUpdate();        // 只打开“更新进度”
+    return;
+  }
+});
+
+document.getElementById("btnFilter").addEventListener("click", render);
+document.getElementById("btnReset").addEventListener("click", ()=>{
+  document.getElementById("q").value="";
+  document.getElementById("fType").value="";
+  document.getElementById("fStage").value="";
+  document.getElementById("fRisk").value="";
+  render();
+});
+
+const detailModal = document.getElementById("detailModal");
+const updateModal = document.getElementById("updateModal");
+const settingsModal = document.getElementById("settingsModal");
+
+document.getElementById("closeDetail").addEventListener("click", closeDetail);
+document.getElementById("closeUpdate").addEventListener("click", closeUpdate);
+document.getElementById("u_cancel").addEventListener("click", closeUpdate);
+
+document.getElementById("btnOpenUpdate").addEventListener("click", openUpdate);
+
+document.getElementById("btnDeleteCase").addEventListener("click", ()=>{
+  if(!currentId) return;
+  const c = CASES.find(x=>x.id===currentId);
+  if(!c) return;
+  const ok = confirm(`确认删除案件：${c.caseNumber}？删除后无法恢复。`);
+  if(!ok) return;
+  CASES = CASES.filter(x=>x.id!==currentId);
+  persist();
+  closeDetail();
+  render();
+});
+
+document.querySelectorAll(".tabBtn").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    document.querySelectorAll(".tabBtn").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.getElementById(b.dataset.tab).classList.add("active");
+  });
+});
+
+function openDetail(id){
+  const c = CASES.find(x=>x.id===id);
+  if(!c) return;
+  currentId = id;
+
+  document.getElementById("detailTitle").textContent = `案件详情｜${c.caseNumber}`;
+  document.getElementById("d_caseNumber").textContent = c.caseNumber;
+  document.getElementById("d_enterpriseName").textContent = c.enterpriseName;
+  document.getElementById("d_enterpriseType").textContent = c.enterpriseType;
+  document.getElementById("d_handlerName").textContent = c.handlerName;
+  document.getElementById("d_registerDate").textContent = c.registerDate;
+  document.getElementById("d_decisionLimit").textContent = `${c.decisionLimit}日`;
+  document.getElementById("d_investigationLimit").textContent = `${c.investigationLimit}日`;
+  document.getElementById("d_stage").textContent = stageName(c.progress||1);
+  document.getElementById("d_remark").value = c.remark || "";
+
+  renderDocs(c);
+  fillKeyDates(c);
+  renderDeadlinePanel(c);
+  renderTimeline(c);
+  fillRemedy(c);
+  renderFiles(c);
+
+  document.querySelectorAll(".tabBtn").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelector('.tabBtn[data-tab="tabBase"]').classList.add("active");
+  document.getElementById("tabBase").classList.add("active");
+
+  detailModal.style.display="block";
+}
+
+function closeDetail(){
+  detailModal.style.display="none";
+  currentId = null;
+}
+
+window.addEventListener("click",(e)=>{
+  if(e.target===detailModal) closeDetail();
+  if(e.target===updateModal) closeUpdate();
+  if(e.target===settingsModal) closeSettings();
+});
+
+document.getElementById("btnSaveRemark").addEventListener("click", ()=>{
+  const c = currentCase();
+  if(!c) return;
+  c.remark = document.getElementById("d_remark").value.trim();
+  c.updateTime = new Date().toISOString();
+  persist();
+  render();
+  alert("备注已保存。");
+});
+
+function currentCase(){
+  if(!currentId) return null;
+  return CASES.find(x=>x.id===currentId) || null;
+}
+
+document.getElementById("btnSaveKeyDates").addEventListener("click", ()=>{
+  const c = currentCase();
+  if(!c) return;
+
+  c.keyDates.investigationDone = document.getElementById("k_investigationDone").value || "";
+  c.keyDates.discussionDone = document.getElementById("k_discussionDone").value || "";
+  c.keyDates.noticeServed = document.getElementById("k_noticeServed").value || "";
+  c.keyDates.decisionMade = document.getElementById("k_decisionMade").value || "";
+  c.keyDates.decisionServed = document.getElementById("k_decisionServed").value || "";
+  c.keyDates.finePaid = document.getElementById("k_finePaid").value || "";
+  c.keyDates.closed = document.getElementById("k_closed").value || "";
+  c.keyDates.filed = document.getElementById("k_filed").value || "";
+  c.keyDates.archived = document.getElementById("k_archived").value || "";
+
+  c.updateTime = new Date().toISOString();
+  persist();
+  renderDeadlinePanel(c);
+  render();
+  alert("关键日期已保存。");
+});
+
+function fillKeyDates(c){
+  const kd = c.keyDates || {};
+  document.getElementById("k_investigationDone").value = kd.investigationDone || "";
+  document.getElementById("k_discussionDone").value = kd.discussionDone || "";
+  document.getElementById("k_noticeServed").value = kd.noticeServed || "";
+  document.getElementById("k_decisionMade").value = kd.decisionMade || "";
+  document.getElementById("k_decisionServed").value = kd.decisionServed || "";
+  document.getElementById("k_finePaid").value = kd.finePaid || "";
+  document.getElementById("k_closed").value = kd.closed || "";
+  document.getElementById("k_filed").value = kd.filed || "";
+  document.getElementById("k_archived").value = kd.archived || "";
+}
+
+function renderDeadlinePanel(c){
+  const dl = computeDeadlines(c);
+  const node = nodeDeadlineInfo(c);
+
+  document.getElementById("d_decisionDeadline").textContent = dl.decisionDeadline || "-";
+  document.getElementById("d_noticeLatest").textContent = dl.noticeLatest || "-";
+  document.getElementById("d_investigationDeadline").textContent = dl.investigationDeadline || "-";
+  document.getElementById("d_nodeDeadline").textContent = node.date ? `${node.type}：${node.date}` : "-";
+
+  document.getElementById("d_serveDeadline").textContent = dl.serveDeadline || "-";
+  document.getElementById("d_payDeadline").textContent = dl.payDeadline || "-";
+  document.getElementById("d_filingDeadline").textContent = dl.filingDeadline || "-";
+  document.getElementById("d_archiveDeadline").textContent = dl.archiveDeadline || "-";
+}
+
+function renderTimeline(c){
+  const box = document.getElementById("timeline");
+  const logs = (c.logs||[]).slice().sort((a,b)=>new Date(a.time)-new Date(b.time));
+  if(!logs.length){
+    box.innerHTML = `<div class="hint">暂无记录</div>`;
+    return;
+  }
+  box.innerHTML = logs.map(l=>{
+    const t = new Date(l.time);
+    const ts = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+    return `<div class="timelineItem">
+      <div class="tt">${escapeHtml(stageName(l.stage))}</div>
+      <div class="dd">时间：${escapeHtml(ts)} ｜ ${escapeHtml(l.text||"")}</div>
+    </div>`;
+  }).join("");
+}
+
+document.getElementById("btnSaveRemedy").addEventListener("click", ()=>{
+  const c = currentCase();
+  if(!c) return;
+  c.remediation.issue = document.getElementById("r_issue").value || "";
+  c.remediation.deadline = document.getElementById("r_deadline").value || "";
+  c.remediation.review = document.getElementById("r_review").value || "";
+  c.remediation.result = document.getElementById("r_result").value || "";
+  c.remediation.note = document.getElementById("r_note").value.trim() || "";
+  c.remediation.updateTime = new Date().toISOString();
+  c.updateTime = new Date().toISOString();
+  persist();
+  fillRemedy(c);
+  alert("整改信息已保存。");
+});
+
+function fillRemedy(c){
+  const r = c.remediation || {};
+  document.getElementById("r_issue").value = r.issue || "";
+  document.getElementById("r_deadline").value = r.deadline || "";
+  document.getElementById("r_review").value = r.review || "";
+  document.getElementById("r_result").value = r.result || "";
+  document.getElementById("r_note").value = r.note || "";
+
+  const hint = document.getElementById("remedyHint");
+  if(r.updateTime){
+    const t = new Date(r.updateTime);
+    hint.textContent = `最后更新时间：${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  }else{
+    hint.textContent = "";
+  }
+}
+
+function renderDocs(c){
+  const box = document.getElementById("docChecklist");
+  box.innerHTML = DOCS.map((name, idx)=>{
+    const key = "d"+(idx+1);
+    const checked = !!(c.docs && c.docs[key]);
+    return `<div class="chk">
+      <input type="checkbox" id="${key}" ${checked?"checked":""}>
+      <label for="${key}">${escapeHtml(name)}</label>
+    </div>`;
+  }).join("");
+}
+document.getElementById("btnSaveDocs").addEventListener("click", ()=>{
+  const c = currentCase();
+  if(!c) return;
+  c.docs = c.docs || {};
+  DOCS.forEach((_, idx)=>{
+    const key = "d"+(idx+1);
+    c.docs[key] = !!document.getElementById(key).checked;
+  });
+  c.updateTime = new Date().toISOString();
+  persist();
+  alert("清单已保存。");
+});
+
+document.getElementById("btnUpload").addEventListener("click", ()=>{
+  const c = currentCase();
+  if(!c) return;
+  const cat = document.getElementById("f_cat").value;
+  const note = document.getElementById("f_note").value.trim();
+  const fileInput = document.getElementById("f_file");
+  const file = fileInput.files && fileInput.files[0];
+  if(!file){ alert("请选择文件。"); return; }
+
+  const max = 2 * 1024 * 1024;
+  if(file.size > max){
+    const ok = confirm("文件较大，确认仍上传？");
+    if(!ok) return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    c.files = c.files || [];
+    c.files.push({
+      id: String(Date.now()) + "_" + Math.random().toString(36).slice(2,6),
+      cat, note,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      data: reader.result,
+      time: new Date().toISOString()
+    });
+    c.updateTime = new Date().toISOString();
+    persist();
+    renderFiles(c);
+    document.getElementById("f_note").value = "";
+    document.getElementById("f_file").value = "";
+    alert("文件已上传。");
+  };
+  reader.readAsDataURL(file);
+});
+
+function renderFiles(c){
+  const box = document.getElementById("fileList");
+  const files = (c.files||[]).slice().sort((a,b)=>new Date(b.time)-new Date(a.time));
+  if(!files.length){
+    box.innerHTML = `<div class="hint" style="margin-top:12px">暂无文件</div>`;
+    return;
+  }
+  box.innerHTML = files.map(f=>{
+    const t = new Date(f.time);
+    const ts = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+    return `<div class="fileListItem">
+      <div class="statusText">${escapeHtml(f.cat)}｜${escapeHtml(f.name)}</div>
+      <div class="muted">时间：${escapeHtml(ts)} ｜ ${(f.size/1024).toFixed(1)}KB ${f.note?("｜备注："+escapeHtml(f.note)):""}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn ghost" onclick="previewFile('${f.id}')">预览</button>
+        <button class="btn red" onclick="removeFile('${f.id}')">删除</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+window.previewFile = function(fileId){
+  const c = currentCase();
+  if(!c) return;
+  const f = (c.files||[]).find(x=>x.id===fileId);
+  if(!f) return;
+
+  if(f.type && f.type.includes("pdf")){
+    const w = window.open("");
+    if(!w){ alert("浏览器拦截了弹窗。"); return; }
+    w.document.write(`<title>预览｜${escapeHtml(f.name)}</title><embed src="${f.data}" type="application/pdf" width="100%" height="100%"/>`);
+    return;
+  }
+  if(f.type && f.type.includes("image")){
+    const w = window.open("");
+    if(!w){ alert("浏览器拦截了弹窗。"); return; }
+    w.document.write(`<title>预览｜${escapeHtml(f.name)}</title><img src="${f.data}" style="max-width:100%;height:auto;display:block;margin:0 auto"/>`);
+    return;
+  }
+  alert("该类型文件暂不支持在线预览。");
+};
+
+window.removeFile = function(fileId){
+  const c = currentCase();
+  if(!c) return;
+  const ok = confirm("确认删除该文件记录？");
+  if(!ok) return;
+  c.files = (c.files||[]).filter(x=>x.id!==fileId);
+  c.updateTime = new Date().toISOString();
+  persist();
+  renderFiles(c);
+};
+
+function openUpdate(){
+  const c = currentCase();
+  if(!c) return;
+
+  const curr = c.progress||1;
+  if(curr>=10){
+    alert("已归档，无需更新。");
+    return;
+  }
+
+  const next = nextStageId(curr);
+  const node = nodeDeadlineInfo(c);
+  const dl = computeDeadlines(c);
+
+  document.getElementById("u_curr").textContent = stageName(curr);
+  document.getElementById("u_next").textContent = stageName(next);
+  document.getElementById("u_deadline").textContent = node.date ? `${node.type}：${node.date}` : "-";
+  document.getElementById("u_decisionDeadline").textContent = dl.decisionDeadline || "-";
+
+  document.getElementById("u_doneDate").value = todayStr();
+  document.getElementById("u_note").value = "";
+  document.getElementById("u_chk1").checked = false;
+  document.getElementById("u_chk2").checked = false;
+  document.getElementById("u_extraLine").style.display = "none";
+  document.getElementById("u_warnText").textContent = "";
+
+  updateModal.style.display = "block";
+}
+function closeUpdate(){ updateModal.style.display = "none"; }
+
+document.getElementById("u_confirm").addEventListener("click", ()=>{
+  const c = currentCase();
+  if(!c) return;
+
+  const curr = c.progress||1;
+  if(curr>=10) return;
+
+  const doneDate = document.getElementById("u_doneDate").value;
+  const note = document.getElementById("u_note").value.trim();
+  const chk1 = document.getElementById("u_chk1").checked;
+  const chk2 = document.getElementById("u_chk2").checked;
+
+  if(!chk1){ alert("请先确认。"); return; }
+  if(!doneDate){ alert("请选择完成日期。"); return; }
+
+  const warning = validateTransition(c, curr, doneDate);
+  if(warning && warning.level==="block"){
+    alert(warning.msg);
+    return;
+  }
+  if(warning && warning.level==="warn"){
+    document.getElementById("u_warnText").textContent = warning.msg;
+    document.getElementById("u_extraLine").style.display = "flex";
+    if(!chk2){
+      alert("存在异常提示，请勾选第二项后提交。");
+      return;
+    }
+  }
+
+  if(curr===9){
+    const allChecked = DOCS.every((_, idx)=> !!c.docs["d"+(idx+1)]);
+    if(!allChecked){
+      alert("文书清单未勾选完整，无法进入“案卷归档”。");
+      return;
+    }
+  }
+
+  writeKeyDateByStage(c, curr, doneDate);
+
+  c.progress = nextStageId(curr);
+  c.updateTime = new Date().toISOString();
+
+  c.logs = c.logs || [];
+  c.logs.push({
+    time: new Date().toISOString(),
+    stage: c.progress,
+    text: note ? `进度更新：${note}` : "进度更新"
+  });
+
+  persist();
+
+  document.getElementById("d_stage").textContent = stageName(c.progress);
+  fillKeyDates(c);
+  renderDeadlinePanel(c);
+  renderTimeline(c);
+  renderDocs(c);
+  renderFiles(c);
+
+  closeUpdate();
+  render();
+});
+
+function writeKeyDateByStage(c, currStage, doneDate){
+  c.keyDates = c.keyDates || {};
+  if(currStage===2) c.keyDates.investigationDone = doneDate;
+  if(currStage===3) c.keyDates.discussionDone = doneDate;
+  if(currStage===4) c.keyDates.noticeServed = doneDate;
+  if(currStage===5) c.keyDates.decisionMade = doneDate;
+  if(currStage===6) c.keyDates.decisionServed = doneDate;
+  if(currStage===7) c.keyDates.finePaid = doneDate;
+  if(currStage===8) c.keyDates.closed = doneDate;
+  if(currStage===9) c.keyDates.filed = doneDate;
+}
+
+function validateTransition(c, currStage, doneDate){
+  const dl = computeDeadlines(c);
+  const kd = c.keyDates || {};
+
+  const done = parseDate(doneDate);
+  const dd = dl.decisionDeadline ? parseDate(dl.decisionDeadline) : null;
+  const noticeLatest = dl.noticeLatest ? parseDate(dl.noticeLatest) : null;
+
+  if(currStage===4 && noticeLatest && done > noticeLatest){
+    return { level:"warn", msg:"告知送达日超过“告知最晚日”。" };
+  }
+  if(currStage===5 && dd && done > dd){
+    return { level:"warn", msg:"决定签发日超过“决定最晚日”。" };
+  }
+  if(currStage===5 && kd.noticeServed){
+    const ns = parseDate(kd.noticeServed);
+    if(ns){
+      const gap = Math.floor((done - ns)/(1000*60*60*24));
+      if(gap < 3){
+        return { level:"warn", msg:"告知→决定间隔不足3天。" };
+      }
+    }
+  }
+  if(currStage===6 && kd.decisionMade){
+    const dm = parseDate(kd.decisionMade);
+    if(dm){
+      const gap = Math.floor((done - dm)/(1000*60*60*24));
+      if(gap > 7){
+        return { level:"warn", msg:"决定→送达超过7天。" };
+      }
+    }
+  }
+  if(currStage===7 && kd.decisionServed){
+    const ds = parseDate(kd.decisionServed);
+    if(ds){
+      const gap = Math.floor((done - ds)/(1000*60*60*24));
+      if(gap > 15){
+        return { level:"warn", msg:"送达→缴款超过15天。" };
+      }
+    }
+  }
+  return null;
+}
+
+document.getElementById("btnSettings").addEventListener("click", openSettings);
+document.getElementById("closeSettings").addEventListener("click", closeSettings);
+
+function openSettings(){
+  HOLIDAYS = loadHolidays();
+  document.getElementById("holidayText").value = HOLIDAYS.join("\n");
+  settingsModal.style.display="block";
+}
+function closeSettings(){ settingsModal.style.display="none"; }
+
+document.getElementById("btnResetHoliday").addEventListener("click", ()=>{
+  document.getElementById("holidayText").value = defaultHolidays().join("\n");
+});
+document.getElementById("btnSaveHoliday").addEventListener("click", ()=>{
+  const txt = document.getElementById("holidayText").value || "";
+  const arr = txt.split("\n").map(s=>s.trim()).filter(Boolean);
+  localStorage.setItem(HOLIDAY_KEY, arr.join("\n"));
+  HOLIDAYS = loadHolidays();
+  alert("设置已保存。");
+  closeSettings();
+  const c = currentCase();
+  if(c) renderDeadlinePanel(c);
+  render();
+});
+
+document.getElementById("btnBackupJson").addEventListener("click", ()=>{
+  const data = { version: 2, exportedAt: new Date().toISOString(), holidays: HOLIDAYS, cases: CASES };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `托里县应急_案件备份_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById("btnRestoreJson").addEventListener("click", ()=>{
+  const input = document.createElement("input");
+  input.type="file";
+  input.accept=".json";
+  input.onchange = ()=>{
+    const file = input.files && input.files[0];
+    if(!file) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      try{
+        const obj = JSON.parse(r.result);
+        if(!obj || !Array.isArray(obj.cases)) throw new Error("格式不正确");
+        const ok = confirm("确认恢复备份？当前数据将被覆盖。");
+        if(!ok) return;
+        CASES = obj.cases;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(CASES));
+        if(Array.isArray(obj.holidays)){
+          localStorage.setItem(HOLIDAY_KEY, obj.holidays.join("\n"));
+          HOLIDAYS = loadHolidays();
+        }
+        closeDetail();
+        render();
+        alert("已恢复。");
+      }catch(e){
+        alert("恢复失败：备份文件格式不正确。");
+      }
+    };
+    r.readAsText(file, "utf-8");
+  };
+  input.click();
+});
+
+function loadScriptOnce(src){
+  return new Promise((resolve, reject)=>{
+    const exist = Array.from(document.scripts).some(s=>s.src===src);
+    if(exist){ resolve(); return; }
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = ()=>resolve();
+    s.onerror = ()=>reject(new Error("加载失败"));
+    document.head.appendChild(s);
+  });
+}
+async function ensureXlsx(){
+  await loadScriptOnce("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js");
+}
+
+document.getElementById("btnExportXlsx").addEventListener("click", async ()=>{
+  try{ await ensureXlsx(); }catch(e){ alert("Excel组件加载失败，请检查网络。"); return; }
+  const rows = CASES.map(c=>{
+    const node = nodeDeadlineInfo(c);
+    const rem = node.date ? diffDays(node.date) : null;
+    const remText = (rem===null) ? "" : (rem>0 ? `${rem}天` : (rem===0 ? "最后1天" : `逾期${Math.abs(rem)}天`));
+    const dl = computeDeadlines(c);
+    return {
+      "案件编号": c.caseNumber,
+      "企业名称": c.enterpriseName,
+      "企业类型": c.enterpriseType,
+      "案件名称": c.caseName,
+      "办案人": c.handlerName,
+      "立案日期": c.registerDate,
+      "当前进度": stageName(c.progress||1),
+      "截止类型": node.type,
+      "截止日期": node.date || "",
+      "剩余": remText,
+      "决定最晚日": dl.decisionDeadline || "",
+      "告知最晚日": dl.noticeLatest || "",
+      "调查到期日": dl.investigationDeadline || "",
+      "备注": c.remark || ""
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "案件数据");
+  XLSX.writeFile(wb, `托里县应急_案件数据_${todayStr()}.xlsx`);
+});
+
+document.getElementById("btnImportXlsx").addEventListener("click", async ()=>{
+  try{ await ensureXlsx(); }catch(e){ alert("Excel组件加载失败，请检查网络。"); return; }
+  const input = document.createElement("input");
+  input.type="file";
+  input.accept=".xlsx,.xls";
+  input.onchange = ()=>{
+    const file = input.files && input.files[0];
+    if(!file) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      try{
+        const data = new Uint8Array(r.result);
+        const wb = XLSX.read(data, {type:"array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(ws);
+        if(!json.length){ alert("Excel无数据。"); return; }
+
+        const ok = confirm(`确认导入 ${json.length} 条记录？（将追加到现有数据）`);
+        if(!ok) return;
+
+        let succ = 0;
+        json.forEach(row=>{
+          const caseNumber = String(row["案件编号"]||"").trim();
+          const enterpriseName = String(row["企业名称"]||"").trim();
+          const enterpriseType = String(row["企业类型"]||"").trim();
+          const caseName = String(row["案件名称"]||"").trim();
+          const handlerName = String(row["办案人"]||"").trim();
+          const registerDate = String(row["立案日期"]||"").trim();
+          if(!caseNumber || !enterpriseName || !enterpriseType || !caseName || !handlerName || !registerDate) return;
+
+          const id = String(Date.now()) + "_" + Math.random().toString(36).slice(2,8);
+          const decisionLimit = Number(row["处罚决定期限"]||90) || 90;
+          const investigationLimit = Number(row["调查取证期限"]||30) || 30;
+          const remark = String(row["备注"]||"").trim();
+
+          const c = {
+            id, caseNumber, enterpriseName, enterpriseType, caseName, handlerName, registerDate,
+            decisionLimit: (decisionLimit===180?180:90),
+            investigationLimit: (investigationLimit===60?60:30),
+            remark,
+            progress: 1,
+            updateTime: new Date().toISOString(),
+            keyDates: { investigationDone:"", discussionDone:"", noticeServed:"", decisionMade:"", decisionServed:"", finePaid:"", closed:"", filed:"", archived:"" },
+            remediation: { issue:"", deadline:"", review:"", result:"", note:"", updateTime:"" },
+            docs: {}, files: [],
+            logs: [{ time:new Date().toISOString(), stage:1, text:"立案（导入登记）" }]
+          };
+          DOCS.forEach((_, idx)=>{ c.docs["d"+(idx+1)] = false; });
+          CASES.push(c);
+          succ++;
+        });
+
+        persist();
+        render();
+        alert(`导入完成：成功 ${succ} 条。`);
+      }catch(e){
+        alert("导入失败：请检查表头字段。");
+      }
+    };
+    r.readAsArrayBuffer(file);
+  };
+  input.click();
+});
+
+render();
+  </script>
+</body>
+</html>
