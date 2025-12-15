@@ -6,7 +6,6 @@
   <title>托里县应急管理局｜案件云端协作平台</title>
   
   <script src="https://npm.elemecdn.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://npm.elemecdn.com/@vikadata/vika@latest/dist/vika.browser.js"></script>
 
   <style>
     /* === 核心视觉：Clean Enterprise v2.0 === */
@@ -101,7 +100,7 @@
 <body>
 
   <div id="loading">
-    <div id="loading_txt">📡 正在连接云端数据库...</div>
+    <div id="loading_txt">📡 正在连接云端数据库(原生模式)...</div>
     <div id="loading_err" style="color:#dc2626;font-size:12px;font-weight:normal;display:none;text-align:center;line-height:1.6;max-width:300px"></div>
     <button id="loading_retry" class="btn outline sm" style="display:none" onclick="location.reload()">🔄 点击重试</button>
   </div>
@@ -230,27 +229,33 @@
  * ⚠️ 配置区：已填入你的维格表 Token 和 ID
  * =======================================================
  */
-const VIKA_TOKEN = 'uskiO2vJEiSUFADER9XIlEd';      // 你的Token
-const DATASHEET_ID = 'dstxQf2SXq5boYq549';     // 你的表ID
+const VIKA_TOKEN = 'uskiO2vJEiSUFADER9XIlEd';      
+const DATASHEET_ID = 'dstxQf2SXq5boYq549';     
 
 // 检查是否配置
 if(!VIKA_TOKEN || !DATASHEET_ID) {
   alert("⚠️ 请先在 HTML 代码中填入 VIKA_TOKEN 和 DATASHEET_ID！\n\n请使用文本编辑器打开此文件进行编辑。");
 }
 
-// 初始化 API (增加网络错误捕获)
-try {
-  if (typeof Vika === 'undefined') {
-    throw new Error('网络库加载失败 (Vika not defined)');
+// === 核心：手动实现 Vika API 请求 (绕过库文件依赖) ===
+const API_BASE = `https://api.vika.cn/fusion/v1/datasheets/${DATASHEET_ID}/records`;
+
+async function vikaFetch(url, method = 'GET', body = null) {
+  const opts = {
+    method: method,
+    headers: {
+      'Authorization': `Bearer ${VIKA_TOKEN}`,
+      'Content-Type': 'application/json'
+    }
+  };
+  if(body) opts.body = JSON.stringify(body);
+  
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.message || 'API 请求失败');
   }
-  const vika = Vika.auth({ token: VIKA_TOKEN });
-  var datasheet = vika.datasheet(DATASHEET_ID);
-} catch(e) {
-  // 如果这里报错，说明阿里的源也被墙了，或者网络极差
-  document.getElementById('loading_txt').innerHTML = '❌ 网络环境不支持';
-  document.getElementById('loading_err').style.display = 'block';
-  document.getElementById('loading_err').innerHTML = '系统无法加载核心组件。<br>原因：您当前的网络（新疆/内网）屏蔽了外部程序库。<br><br>技术错误：' + e.message;
-  document.getElementById('loading_retry').style.display = 'inline-flex';
+  return await res.json();
 }
 
 // 全局数据缓存
@@ -266,10 +271,11 @@ const STAGES = [
 // === 核心功能函数 ===
 
 async function refreshData() {
-  if (typeof datasheet === 'undefined') return;
   showLoading(true);
   try {
-    const res = await datasheet.records.query({ pageSize: 1000 });
+    // 使用 fetch 直接请求
+    const res = await vikaFetch(API_BASE + '?pageSize=1000', 'GET');
+    
     if(res.success) {
       ALL_CASES = res.data.records.map(rec => {
         let parsed = {};
@@ -287,8 +293,10 @@ async function refreshData() {
     }
   } catch(e) {
     console.error(e);
-    // 这里如果报错，说明库加载了，但是连不上维格表服务器
-    toast('网络错误，无法连接数据库', 'error');
+    document.getElementById('loading_txt').innerHTML = '❌ 网络连接失败';
+    document.getElementById('loading_err').style.display = 'block';
+    document.getElementById('loading_err').innerHTML = '无法连接到维格表服务器。<br>错误详情：' + e.message;
+    document.getElementById('loading_retry').style.display = 'inline-flex';
   }
   showLoading(false);
 }
@@ -310,22 +318,28 @@ async function saveCase() {
     const jsonStr = JSON.stringify(data);
 
     if(CURRENT_ID) {
-      await datasheet.records.update([{
-        recordId: CURRENT_ID,
-        fields: { 'title': data.caseNumber, 'data_json': jsonStr }
-      }]);
+      // 更新
+      await vikaFetch(API_BASE, 'PATCH', {
+        records: [{
+          recordId: CURRENT_ID,
+          fields: { 'title': data.caseNumber, 'data_json': jsonStr }
+        }]
+      });
       toast('修改已保存至云端');
     } else {
-      await datasheet.records.create([{
-        fields: { 'title': data.caseNumber, 'data_json': jsonStr }
-      }]);
+      // 新增
+      await vikaFetch(API_BASE, 'POST', {
+        records: [{
+          fields: { 'title': data.caseNumber, 'data_json': jsonStr }
+        }]
+      });
       toast('新案件已上传云端');
     }
     closeModal();
     refreshData();
   } catch(e) {
     console.error(e);
-    toast('保存失败','error');
+    toast('保存失败: ' + e.message, 'error');
   }
   showLoading(false);
 }
@@ -335,12 +349,12 @@ async function deleteCase() {
   if(!confirm('⚠️ 警告：确定要从云数据库彻底删除此案件吗？')) return;
   showLoading(true);
   try {
-    await datasheet.records.delete([CURRENT_ID]);
+    await vikaFetch(API_BASE + `?recordIds=${CURRENT_ID}`, 'DELETE');
     toast('案件已删除');
     closeModal();
     refreshData();
   } catch(e) {
-    toast('删除失败','error');
+    toast('删除失败: ' + e.message, 'error');
   }
   showLoading(false);
 }
@@ -354,13 +368,22 @@ async function updateProgress() {
   const stageName = STAGES.find(s=>s.id === CURRENT_DATA.stage).n;
   CURRENT_DATA.timeline.push({ t: todayStr(), txt: `进入[${stageName}]：${note}` });
   const jsonStr = JSON.stringify(CURRENT_DATA);
+  
   showLoading(true);
-  await datasheet.records.update([{ recordId: CURRENT_ID, fields: { 'data_json': jsonStr } }]);
+  await vikaFetch(API_BASE, 'PATCH', {
+    records: [{
+      recordId: CURRENT_ID,
+      fields: { 'data_json': jsonStr }
+    }]
+  });
   showLoading(false);
+  
   toast('进度已更新');
   openDetail(CURRENT_ID); 
   renderTable();
 }
+
+// === 界面交互函数 (保持不变) ===
 
 function getFormData() {
   return {
@@ -480,6 +503,10 @@ function calcStats() {
 }
 
 function exportExcel() {
+  if (typeof XLSX === 'undefined') {
+    alert('❌ 导出失败：网络环境限制，Excel 组件未加载成功。\n\n（但系统其他功能正常）');
+    return;
+  }
   if(!ALL_CASES.length) return toast('无数据可导出','error');
   const rows = ALL_CASES.map(c => {
     const dl = calcDeadLine(c);
